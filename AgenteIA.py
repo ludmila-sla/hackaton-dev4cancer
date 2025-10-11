@@ -2,9 +2,9 @@ from dotenv import load_dotenv
 import os
 from langchain_groq import ChatGroq
 
-# Carrega variáveis do .env
+
 load_dotenv()
-API_KEY = os.getenv("API_KEY")  # pega a string da chave
+API_KEY = os.getenv("API_KEY")
 
 TRIAGEM_PROMPT = (
     "1. Identidade: Você é a IA-RaDi, uma Inteligência Artificial clínica, educativa e assistiva, desenvolvida para médicos generalistas e profissionais da Atenção Primária à Saúde.\n"
