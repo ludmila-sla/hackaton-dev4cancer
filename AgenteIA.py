@@ -117,13 +117,16 @@ teste = ["Posso reembolsar a internet?"]
 for msg_teste in teste:
     print(f"Pergunta: {msg_teste}\n -> Resposta; {triagem(msg_teste)}\n")
 
-
+# Bibliotecas para caminho dos arquivos
 from pathlib import Path
 from langchain_community.document_loaders import PyMuPDFLoader 
 
+# Caminho relativo para a pasta 'docs' dentro do projeto
+docs_path = Path("docs") 
+
 docs =[]
 
-for n in Path("/content/").glob("*.pdf"):
+for n in docs_path.glob("*.pdf"):
     try:
         loader = PyMuPDFLoader(str(n)) 
         docs.extend(loader.load())
@@ -134,3 +137,50 @@ for n in Path("/content/").glob("*.pdf"):
 print(f"Total de documentos carregados: {len(docs)}")
 
 
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+splitter =  RecursiveCharacterTextSplitter(chunk_size= 300, chunk_overlap= 70)
+
+chunks = splitter.split_documents(docs)
+
+
+#Apenas para depuração e conferência
+for i, chunk in enumerate(chunks[:5]):
+    print(chunk) # Apenas vai mostrar os textos do chunks    
+    print ("---------------------------------------\n")
+
+
+# Transformar chunks em Vetores
+from langchain.embeddings import HuggingFaceEmbeddings
+
+embeddings = HuggingFaceEmbeddings(
+model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
+
+
+from langchain_community.vectorstores import FAISS
+
+vectorstore = FAISS.from_documents(chunks, embeddings)
+retriever = vectorstore.as_retriever(search_type ="similarity_score_threshold",
+                                    search_kwargs={"score_threshold":0.2, "K":4 })
+
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain.chains.combine_documents import create_stuff_documents_chain 
+
+"""
+-----------------------------------------------------------------------------------------------------------
+LIBERDADE CRIATIVA NOSSA MUDAR O PROMPT E QUANTIDADE, TIPOS, ASSUNTOS DOS ARQUIVOS QUE VAMOS USAR
+-----------------------------------------------------------------------------------------------------------
+
+"""
+
+prompt_rag = ChatPromptTemplate.from_messages([
+    ("system",
+    "Você é um Assistente de Políticas Internas (RH/IT) da empresa Carraro Desenvolvimento. "
+    "Respoda SOMETE com base no contexto fornecido. "
+    "Se não houver base suficiente, responda apenas 'Não sei. '"), # LIBERDADE CRIATIVA OU SEJA PODEMOS COLOCAR OUTRA FRASE(NAO TENHO ESSA INFORMAÇÃO, NÃ APRENDI ISSO), OU SE EU FIZER A PERGUNTA DE NOVO OU DAR O PLAY PELA SEGUNDA VEZ NÃO OBTIVE O CONHECIMENTO AINDA
+    ("human", "Pergunta: {input}\n\nContexto:\n{context}" ) # pergunta variavel mensagem do user | contexto vai ser os chunks que foram encontrados que tem relação com a pergunta
+    ])
+
+document_chain = create_stuff_documents_chain(llm_triagem, prompt_rag)
