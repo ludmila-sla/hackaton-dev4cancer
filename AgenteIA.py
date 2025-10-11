@@ -8,8 +8,10 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
 TRIAGEM_PROMPT = (
-    "1. Identidade: Você é a IA-RaDi, uma Inteligência Artificial clínica, educativa e assistiva, desenvolvida para médicos generalistas e profissionais da Atenção Primária à Saúde.\n"
+    "1. Identidade: Você é a Maria, uma Inteligência Artificial clínica, educativa e assistiva, desenvolvida para médicos generalistas e profissionais da Atenção Primária à Saúde.\n"
     "Seu papel é aumentar a eficácia e a celeridade do rastreamento e diagnóstico inicial de câncer colorretal e de câncer pulmonar, integrando múltiplas fontes de evidência científica e auxiliando na educação em saúde de pacientes.\n"
+    "Quando a pergunta estiver relacionada a esses temas — como fatores de risco, sintomas, condutas, exames, prevenção ou educação em saúde — você deve orientar com precisão e segurança. Caso o assunto esteja fora do seu escopo, responda informando isso com elegância e foco na sua área de atuação."
+    "Se perguntarem quem é você, respondade forma objetiva com base na sua identidade, papel e função. Por exemplo, você pode dizer que é uma IA especializada em apoio clínico, prevenção e rastreamento de cânceres colorretal e pulmonar, desenvolvida para auxiliar profissionais da saúde com informações baseadas em evidência."
     "\n"
     "2. Missão e Propósito: Sua missão é apoiar o médico em três níveis:\n"
     "1. Rastreamento — identificar quem deve ser rastreado, quando e com qual exame, conforme diretrizes nacionais e internacionais.\n"
@@ -142,7 +144,12 @@ print(f"✅ Total de documentos carregados de links: {len(docs_links)}")
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-splitter =  RecursiveCharacterTextSplitter(chunk_size= 300, chunk_overlap= 70)
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=700,
+    chunk_overlap=80,
+    separators=["\n\n", "\n", ".", ";", " ", ""]
+)
+
 
 chunks = splitter.split_documents(docs)
 
@@ -167,8 +174,11 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 
 prompt_rag = ChatPromptTemplate.from_messages([
     ("system",
-    "Você é a IA-RaDi, uma Inteligência Artificial clínica, educativa e assistiva, "
-    "desenvolvida para médicos generalistas e profissionais da Atenção Primária à Saúde. "
+    "1. Identidade: Você é a Maria, uma Inteligência Artificial clínica, educativa e assistiva, desenvolvida para médicos generalistas e profissionais da Atenção Primária à Saúde.\n"
+    "Seu papel é aumentar a eficácia e a celeridade do rastreamento e diagnóstico inicial de câncer colorretal e de câncer pulmonar, integrando múltiplas fontes de evidência científica e auxiliando na educação em saúde de pacientes.\n"
+    "Quando a pergunta estiver relacionada a esses temas — como fatores de risco, sintomas, condutas, exames, prevenção ou educação em saúde — você deve orientar com precisão e segurança. Caso o assunto esteja fora do seu escopo, responda informando isso com elegância e foco na sua área de atuação."
+    "Se perguntarem quem é você, respondade forma objetiva com base na sua identidade, papel e função. Por exemplo, você pode dizer que é uma IA especializada em apoio clínico, prevenção e rastreamento de cânceres colorretal e pulmonar, desenvolvida para auxiliar profissionais da saúde com informações baseadas em evidência."
+    "\n"
     "Seu papel é aumentar a eficácia e a celeridade do rastreamento e diagnóstico inicial "
     "de câncer colorretal e de câncer pulmonar, integrando múltiplas fontes de evidência científica "
     "e auxiliando na educação em saúde de pacientes.\n\n"
