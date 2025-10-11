@@ -97,7 +97,7 @@ from os import get_terminal_size
 
 llm_triagem = ChatGroq(
     model="llama-3.1-8b-instant",
-    temperature=0.0,
+    temperature=0.6,
     api_key= API_KEY
 )
 
@@ -114,10 +114,7 @@ def triagem(mensagem: str) -> Dict:     # ATRIBUTO qual conteudo do system mensa
         ])
     return saida.model_dump()
 
-teste = ["Posso reembolsar a internet?"]
 
-for msg_teste in teste:
-    print(f"Pergunta: {msg_teste}\n -> Resposta; {triagem(msg_teste)}\n")
 
 # Bibliotecas para caminho dos arquivos
 from pathlib import Path
@@ -147,12 +144,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 splitter =  RecursiveCharacterTextSplitter(chunk_size= 300, chunk_overlap= 70)
 
 chunks = splitter.split_documents(docs)
-
-
-#Apenas para depuração e conferência
-for i, chunk in enumerate(chunks[:5]):
-    print(chunk) # Apenas vai mostrar os textos do chunks    
-    print ("---------------------------------------\n")
 
 
 # Transformar chunks em Vetores
@@ -229,7 +220,6 @@ def formatar_citacoes(docs_rel: List, query: str) -> List[Dict]:
 
 
 
-
 #funcão principal que vai fazer toda essa coneção
 def perguntar_politica_RAG(pergunta: str) -> Dict:
     docs_relacionados = retriever.invoke(pergunta) 
@@ -253,18 +243,23 @@ def perguntar_politica_RAG(pergunta: str) -> Dict:
         "citacoes": formatar_citacoes(docs_relacionados,pergunta),
         "contexto_encontrado": True }
 
-testes = ["O que é o câncer coloretal"]
 
-for msg_teste in testes:
-    resposta = perguntar_politica_RAG(msg_teste)
-    print(f"PERGUNTA: {msg_teste}")
-    print(f"RESPOSTA: {resposta['answer']}\n")
-    if resposta ['contexto_encontrado']:
-        print(f"CITAÇÕES:")
-        for c in resposta['citacoes']:
-            print(f" - Documento: {c['documento']}, Página: {c['pagina']}")
-            print(f"   Trecho: {c['trecho']}")
-    print("-----------------------------------------------------------")
+
+
+pergunta = input("Digite sua pergunta: ")
+
+
+resposta = perguntar_politica_RAG(pergunta)
+print(f"PERGUNTA: {pergunta}")
+print(f"RESPOSTA: {resposta['answer']}\n")
+if resposta ['contexto_encontrado']:
+    print(f"CITAÇÕES:")
+    for c in resposta['citacoes']:
+        print(f" - Documento: {c['documento']}, Página: {c['pagina']}")
+        print(f"   Trecho: {c['trecho']}")
+print("-----------------------------------------------------------")
+
+
 
 
 
