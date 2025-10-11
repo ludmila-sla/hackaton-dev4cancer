@@ -1,10 +1,10 @@
-from groq import Groq
+from dotenv import load_dotenv
 import os
-
 from langchain_groq import ChatGroq
 
-# 1. Conectando à API (insira sua chave)
-client = Groq(api_key="API_KEY")
+# Carrega variáveis do .env
+load_dotenv()
+API_KEY = os.getenv("API_KEY")  # pega a string da chave
 
 TRIAGEM_PROMPT = (
     "1. Identidade: Você é a IA-RaDi, uma Inteligência Artificial clínica, educativa e assistiva, desenvolvida para médicos generalistas e profissionais da Atenção Primária à Saúde.\n"
@@ -98,5 +98,5 @@ from os import get_terminal_size
 llm_triagem = ChatGroq(
     model="llama-3.1-8b-instant",
     temperature=0.0,
-    api_key= client
+    api_key= API_KEY
 )
