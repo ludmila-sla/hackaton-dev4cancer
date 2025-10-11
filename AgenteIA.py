@@ -100,3 +100,37 @@ llm_triagem = ChatGroq(
     temperature=0.0,
     api_key= API_KEY
 )
+
+from langchain_core.messages import SystemMessage, HumanMessage
+
+triagem_chain = llm_triagem.with_structured_output(TriagemOut)
+
+def triagem(mensagem: str) -> Dict:     # ATRIBUTO qual conteudo do system mensage #parametro/metodo Que foi o prompt que nos criamos TRIAGEM MENSAGEM
+    saida: TriagemOut=triagem_chain.invoke([
+        SystemMessage(content=TRIAGEM_PROMPT),
+        HumanMessage(content=mensagem)
+        ])
+    return saida.model_dump()
+
+teste = ["Posso reembolsar a internet?"]
+
+for msg_teste in teste:
+    print(f"Pergunta: {msg_teste}\n -> Resposta; {triagem(msg_teste)}\n")
+
+
+from pathlib import Path
+from langchain_community.document_loaders import PyMuPDFLoader 
+
+docs =[]
+
+for n in Path("/content/").glob("*.pdf"):
+    try:
+        loader = PyMuPDFLoader(str(n)) 
+        docs.extend(loader.load())
+        print(f'Arquivo {n.name} Carregado com sucesso')
+    except Exception as e:
+        print(f'Erro ao carregar o arquivo {n.name}: {e}')
+
+print(f"Total de documentos carregados: {len(docs)}")
+
+
