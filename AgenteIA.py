@@ -257,22 +257,6 @@ def perguntar_politica_RAG(pergunta: str, session_id: str = None) -> Dict:
 
 
 
-pergunta = input("Digite sua pergunta: ")
-
-
-resposta = perguntar_politica_RAG(pergunta)
-print(f"PERGUNTA: {pergunta}")
-print(f"RESPOSTA: {resposta['answer']}\n")
-if resposta ['contexto_encontrado']:
-    print(f"CITAÇÕES:")
-    for c in resposta['citacoes']:
-        print(f" - Documento: {c['documento']}, Página: {c['pagina']}")
-        print(f"   Trecho: {c['trecho']}")
-print("-----------------------------------------------------------")
-
-
-
-
 
 
 

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat com IA</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="chat-container">
@@ -34,8 +34,19 @@
             addMessage('user', userMsg);
             input.value = '';
 
-            const botReply = "Resposta da IA para: " + userMsg;
-            addMessage('bot', botReply);
+            try {
+                const response = await fetch('/pergunta', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({mensagem: userMsg})
+                });
+
+                const data = await response.json();
+                addMessage('bot', data.answer);
+            } catch (err) {
+                addMessage('bot', "Erro ao conectar com a IA.");
+                console.error(err);
+            }
         });
 
         function addMessage(sender, text) {
