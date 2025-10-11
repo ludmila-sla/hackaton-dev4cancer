@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 import os
 from langchain_groq import ChatGroq
+from persistencia import responder, criar_session
 
 
 load_dotenv()
@@ -221,7 +222,10 @@ def formatar_citacoes(docs_rel: List, query: str) -> List[Dict]:
 
 
 #funcão principal que vai fazer toda essa coneção
-def perguntar_politica_RAG(pergunta: str) -> Dict:
+def perguntar_politica_RAG(pergunta: str, session_id: str = None) -> Dict:
+    if session_id is None:
+        session_id = criar_session()
+
     docs_relacionados = retriever.invoke(pergunta) 
 
     if not docs_relacionados:
@@ -229,19 +233,26 @@ def perguntar_politica_RAG(pergunta: str) -> Dict:
             "citacoes": [],
             "contexto_encontrado": False }
 
-    answer = document_chain.invoke({"input": pergunta,
-                                    "context": docs_relacionados})
+    else:
+        answer = document_chain.invoke({"input": pergunta, "context": docs_relacionados})
+        resposta_texto = (answer or "").strip()
+        if resposta_texto.rstrip(".!?") == "Não sei":
+            contexto_encontrado = False
+            citacoes = []
+        else:
+            contexto_encontrado = True
+            citacoes = formatar_citacoes(docs_relacionados, pergunta)
 
-    txt = (answer or "").strip()
+    resposta = {
+        "answer": resposta_texto,
+        "citacoes": citacoes,
+        "contexto_encontrado": contexto_encontrado,
+        "session_id": session_id
+    }
+    responder(session_id, pergunta)
+    responder(session_id, resposta_texto)
 
-    if txt.rstrip(".!?") == "Não sei":
-        return {"answer": "Não sei",
-            "citacoes": [],
-            "contexto_encontrado": False }
-
-    return {"answer": txt,
-        "citacoes": formatar_citacoes(docs_relacionados,pergunta),
-        "contexto_encontrado": True }
+    return resposta
 
 
 
