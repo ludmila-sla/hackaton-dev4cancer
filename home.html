@@ -13,7 +13,6 @@
         </header>
 
         <div id="chat-box" class="chat-box">
-            <!-- As mensagens aparecerão aqui -->
         </div>
 
         <form id="chat-form" class="chat-form">
@@ -23,7 +22,6 @@
     </div>
 
     <script>
-        // Exemplo simples de front-end (você liga depois ao backend)
         const form = document.getElementById('chat-form');
         const input = document.getElementById('message-input');
         const chatBox = document.getElementById('chat-box');
@@ -36,8 +34,6 @@
             addMessage('user', userMsg);
             input.value = '';
 
-            // Aqui você faria a requisição para sua IA (backend)
-            // Simulando resposta:
             const botReply = "Resposta da IA para: " + userMsg;
             addMessage('bot', botReply);
         });
