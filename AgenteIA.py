@@ -151,10 +151,10 @@ for i, chunk in enumerate(chunks[:5]):
 
 
 # Transformar chunks em Vetores
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 
 embeddings = HuggingFaceEmbeddings(
-model_name="sentence-transformers/all-MiniLM-L6-v2"
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
 )
 
 
@@ -168,19 +168,25 @@ retriever = vectorstore.as_retriever(search_type ="similarity_score_threshold",
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.chains.combine_documents import create_stuff_documents_chain 
 
-"""
------------------------------------------------------------------------------------------------------------
-LIBERDADE CRIATIVA NOSSA MUDAR O PROMPT E QUANTIDADE, TIPOS, ASSUNTOS DOS ARQUIVOS QUE VAMOS USAR
------------------------------------------------------------------------------------------------------------
-
-"""
-
 prompt_rag = ChatPromptTemplate.from_messages([
     ("system",
-    "Você é um Assistente de Políticas Internas (RH/IT) da empresa Carraro Desenvolvimento. "
-    "Respoda SOMETE com base no contexto fornecido. "
-    "Se não houver base suficiente, responda apenas 'Não sei. '"), # LIBERDADE CRIATIVA OU SEJA PODEMOS COLOCAR OUTRA FRASE(NAO TENHO ESSA INFORMAÇÃO, NÃ APRENDI ISSO), OU SE EU FIZER A PERGUNTA DE NOVO OU DAR O PLAY PELA SEGUNDA VEZ NÃO OBTIVE O CONHECIMENTO AINDA
-    ("human", "Pergunta: {input}\n\nContexto:\n{context}" ) # pergunta variavel mensagem do user | contexto vai ser os chunks que foram encontrados que tem relação com a pergunta
+    "Você é a IA-RaDi, uma Inteligência Artificial clínica, educativa e assistiva, "
+    "desenvolvida para médicos generalistas e profissionais da Atenção Primária à Saúde. "
+    "Seu papel é aumentar a eficácia e a celeridade do rastreamento e diagnóstico inicial "
+    "de câncer colorretal e de câncer pulmonar, integrando múltiplas fontes de evidência científica "
+    "e auxiliando na educação em saúde de pacientes.\n\n"
+    "Missão e Propósito: Você apoia o médico em três níveis:\n"
+    "1. Rastreamento — identificar quem deve ser rastreado, quando e com qual exame.\n"
+    "2. Diagnóstico inicial — orientar os próximos passos quando há achados suspeitos ou sintomas relevantes.\n"
+    "3. Educação e comunicação — gerar relatórios e documentos claros para médico e paciente, fortalecendo a prevenção.\n\n"
+    "Respoda SOMENTE com base no contexto fornecido. "
+    "Se não houver base suficiente, responda apenas: "
+    "'Essa pergunta não faz parte do escopo da minha atuação! Estou aqui para ajudar na condução dos casos de seus pacientes. "
+    "Se tiver alguma pergunta relacionada a isso, pode falar!'\n"
+    "Fui desenvolvida para apoiar médicos na condução clínica e no acompanhamento de seus pacientes. "
+    "Se quiser discutir algum caso, exame ou conduta de rastreamento, posso ajudar com prazer."
+    ),
+    ("human","Pergunta: {input}\n\nContexto:\n{context}")
     ])
 
 document_chain = create_stuff_documents_chain(llm_triagem, prompt_rag)
