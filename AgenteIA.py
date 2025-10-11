@@ -102,6 +102,8 @@ llm_triagem = ChatGroq(
 )
 
 from langchain_core.messages import SystemMessage, HumanMessage
+from importar_links import carregar_links
+
 
 triagem_chain = llm_triagem.with_structured_output(TriagemOut)
 
@@ -134,7 +136,10 @@ for n in docs_path.glob("*.pdf"):
     except Exception as e:
         print(f'Erro ao carregar o arquivo {n.name}: {e}')
 
-print(f"Total de documentos carregados: {len(docs)}")
+docs_links = carregar_links()
+docs.extend(docs_links)
+print(f"✅ Total de documentos carregados de links: {len(docs_links)}")
+#print(f"Total de documentos carregados: {len(docs)}")
 
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -184,3 +189,4 @@ prompt_rag = ChatPromptTemplate.from_messages([
     ])
 
 document_chain = create_stuff_documents_chain(llm_triagem, prompt_rag)
+
