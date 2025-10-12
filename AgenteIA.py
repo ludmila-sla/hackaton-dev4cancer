@@ -2,7 +2,20 @@ from dotenv import load_dotenv
 import os
 from langchain_groq import ChatGroq
 from persistencia import responder, criar_session
-
+from static.gerar_imagem import gerar_grafico_probabilidades
+import re, pathlib
+from pydantic import BaseModel, Field
+from typing import Literal, List, Dict
+from os import get_terminal_size
+from langchain_core.messages import SystemMessage, HumanMessage
+from importar_links import carregar_links
+from pathlib import Path
+from langchain_community.document_loaders import PyMuPDFLoader 
+from langchain_core.prompts import ChatPromptTemplate
+from langchain.chains.combine_documents import create_stuff_documents_chain 
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
@@ -89,18 +102,11 @@ TRIAGEM_PROMPT = (
     "Analise a mensagem e decida a ação mais apropriada."
 )
 
-from pydantic import BaseModel, Field
-
-from typing import Literal, List, Dict
-
 
 class TriagemOut(BaseModel):
     decisao: Literal["AUTO_RESOLVER", "PEDIR_INFO", "ABRIR_CHAMADO"]
     urgencia: Literal["BAIXA", "MEDIA", "ALTA"]
     campos_faltantes: List[str] = Field(default_factory=list)
-
-
-from os import get_terminal_size
 
 llm_triagem = ChatGroq(
     model="llama-3.1-8b-instant",
@@ -108,12 +114,7 @@ llm_triagem = ChatGroq(
     api_key= API_KEY
 )
 
-from langchain_core.messages import SystemMessage, HumanMessage
-from importar_links import carregar_links
-
-
 triagem_chain = llm_triagem.with_structured_output(TriagemOut)
-
 def triagem(mensagem: str) -> Dict:     # ATRIBUTO qual conteudo do system mensage #parametro/metodo Que foi o prompt que nos criamos TRIAGEM MENSAGEM
     saida: TriagemOut=triagem_chain.invoke([
         SystemMessage(content=TRIAGEM_PROMPT),
@@ -121,12 +122,7 @@ def triagem(mensagem: str) -> Dict:     # ATRIBUTO qual conteudo do system mensa
         ])
     return saida.model_dump()
 
-
-
 # Bibliotecas para caminho dos arquivos
-from pathlib import Path
-from langchain_community.document_loaders import PyMuPDFLoader 
-
 # Caminho relativo para a pasta 'docs' dentro do projeto
 docs_path = Path("docs") 
 
@@ -143,38 +139,41 @@ for n in docs_path.glob("*.pdf"):
 docs_links = carregar_links()
 docs.extend(docs_links)
 print(f"✅ Total de documentos carregados de links: {len(docs_links)}")
-#print(f"Total de documentos carregados: {len(docs)}")
 
-
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 splitter = RecursiveCharacterTextSplitter(
-    chunk_size=700,
-    chunk_overlap=80,
+    chunk_size=1000,
+    chunk_overlap=100,
     separators=["\n\n", "\n", ".", ";", " ", ""]
 )
 
-
 chunks = splitter.split_documents(docs)
 
-
 # Transformar chunks em Vetores
-from langchain_huggingface import HuggingFaceEmbeddings
+
+CAMINHO_FAISS = "meu_indice_faiss"
+CAMINHO_PICKLE = "meu_indice.pkl"
 
 embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2"
 )
 
+# Se já existir, reaproveita
+if os.path.exists(CAMINHO_FAISS) and os.path.exists(CAMINHO_PICKLE):
+    vectorstore = FAISS.load_local(
+        CAMINHO_FAISS,
+        embeddings,
+        allow_dangerous_deserialization=True
+    )
+else:
+    # Só cria SE não existir ainda
+    vectorstore = FAISS.from_documents(chunks, embeddings)
+    vectorstore.save_local(CAMINHO_FAISS)
 
-from langchain_community.vectorstores import FAISS
-
-vectorstore = FAISS.from_documents(chunks, embeddings)
-retriever = vectorstore.as_retriever(search_type ="similarity_score_threshold",
-                                    search_kwargs={"score_threshold":0.2, "K":4 })
-
-
-from langchain_core.prompts import ChatPromptTemplate
-from langchain.chains.combine_documents import create_stuff_documents_chain 
+retriever = vectorstore.as_retriever(
+    search_type="similarity_score_threshold",
+    search_kwargs={"score_threshold": 0.2, "k": 4}
+)
 
 prompt_rag = ChatPromptTemplate.from_messages([
     ("system",
@@ -202,10 +201,7 @@ prompt_rag = ChatPromptTemplate.from_messages([
 
 document_chain = create_stuff_documents_chain(llm_triagem, prompt_rag)
 
-
-
 # Formatadores
-import re, pathlib
 
 def _clean_text(s: str) -> str:
     return re.sub(r"\s+", " ", s or "").strip()
@@ -233,34 +229,55 @@ def formatar_citacoes(docs_rel: List, query: str) -> List[Dict]:
         cites.append({"documento": src, "pagina": page, "trecho": extrair_trecho(d.page_content, query)})
     return cites[:3]
 
-
-
 #funcão principal que vai fazer toda essa coneção
 def perguntar_politica_RAG(pergunta: str, session_id: str = None) -> Dict:
     if session_id is None:
         session_id = criar_session()
 
-    # 1) Tentar recuperar documentos (usar retrieve/get_relevant_documents se disponível)
+    pergunta_lower = pergunta.lower()
+    if any(termo in pergunta_lower for termo in ["gráfico", "grafico", "imagem", "chart", "plot"]):
+        try:
+            dados = {
+                "fatores": ["Tabagismo", "Idade", "História Familiar", "Sintomas", "Obesidade"],
+                "probabilidades": [0.35, 0.25, 0.15, 0.25, 0.20]
+            }
+            caminho_imagem = gerar_grafico_probabilidades(dados)
+            
+            resposta_texto = "Aqui está o gráfico de probabilidades solicitado:"
+            
+            responder(session_id, pergunta)
+            responder(session_id, resposta_texto)
+
+            return {
+                "answer": resposta_texto,
+                "citacoes": [],
+                "imagem": caminho_imagem,
+                "contexto_encontrado": False,
+                "session_id": session_id
+            }
+            
+        except Exception as e:
+            return {
+                "answer": f"Erro ao gerar gráfico: {str(e)}",
+                "citacoes": [],
+                "contexto_encontrado": False,
+                "session_id": session_id
+            }
+
     try:
-        # preferível: retriever.get_relevant_documents / retriever.retrieve
         docs_relacionados = retriever.get_relevant_documents(pergunta)
     except Exception:
-        # fallback para o método invoke (caso seja necessário)
         try:
             docs_relacionados = retriever.invoke(pergunta) or []
         except Exception:
             docs_relacionados = []
 
-    # 2) Se não encontrou documentos, não devolva "Não sei" automaticamente.
-    #    Em vez disso, chame o document_chain sem contexto (permitindo que o prompt trate saudações).
     try:
         if docs_relacionados:
             answer = document_chain.invoke({"input": pergunta, "context": docs_relacionados})
         else:
-            # chamar sem contexto para permitir respostas sociais (saudações, "quem é você?", etc.)
             answer = document_chain.invoke({"input": pergunta, "context": []})
     except Exception as e:
-        # fallback seguro
         return {
             "answer": "Erro ao consultar o modelo: " + str(e),
             "citacoes": [],
@@ -268,10 +285,9 @@ def perguntar_politica_RAG(pergunta: str, session_id: str = None) -> Dict:
             "session_id": session_id
         }
 
-    # 3) Normalizar o texto da resposta (document_chain pode retornar objetos diferentes em versões)
+    # Processar resposta normal
     resposta_texto = str(answer).strip()
-
-    # 4) Detectar se a resposta é um "Não sei" genuíno (pode ajustar a string conforme seu prompt)
+    
     if resposta_texto.rstrip(".!?").lower() in ("não sei", "nao sei"):
         contexto_encontrado = False
         citacoes = []
@@ -286,9 +302,8 @@ def perguntar_politica_RAG(pergunta: str, session_id: str = None) -> Dict:
         "session_id": session_id
     }
 
-    # 5) Persistência de logs
+    # Persistência de logs
     responder(session_id, pergunta)
     responder(session_id, resposta_texto)
 
     return resposta
-

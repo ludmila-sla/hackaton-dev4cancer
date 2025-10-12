@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat com IA</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
     <div class="chat-container">
         <header class="chat-header">
@@ -37,25 +39,48 @@
             try {
                 const response = await fetch('/pergunta', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({mensagem: userMsg})
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mensagem: userMsg })
                 });
 
                 const data = await response.json();
-                addMessage('bot', data.answer);
+                if (data.imagem) {
+                    addMessage('bot', data.answer, data.imagem);
+                } else {
+                    addMessage('bot', data.answer); 
+                }
             } catch (err) {
                 addMessage('bot', "Erro ao conectar com a IA.");
                 console.error(err);
             }
         });
+        function addMessage(sender, text, imageUrl = null) {
+    const msgDiv = document.createElement('div');
+    msgDiv.classList.add('message', sender);
 
-        function addMessage(sender, text) {
-            const msgDiv = document.createElement('div');
-            msgDiv.classList.add('message', sender);
-            msgDiv.textContent = text;
-            chatBox.appendChild(msgDiv);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
+    if (text) {
+        const p = document.createElement('p');
+        p.textContent = text;
+        msgDiv.appendChild(p);
+    }
+
+    if (imageUrl) {
+        const img = document.createElement('img');
+        img.src = '/' + imageUrl;
+        img.alt = 'Gráfico de Probabilidades';
+        img.style.maxWidth = '100%';
+        img.style.border = '1px solid #ddd';
+        img.style.borderRadius = '5px';
+        img.style.marginTop = '10px';
+        msgDiv.appendChild(img);
+    }
+
+    chatBox.appendChild(msgDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+
     </script>
 </body>
+
 </html>
