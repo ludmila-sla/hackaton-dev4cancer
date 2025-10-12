@@ -73,7 +73,7 @@
                     currentSessionId = data.session_id;
                 }
 
-                if (data.solicita_email) {
+                if (data.solicita_email === true) {
                     const email = prompt("Por favor, informe o email do oncologista para enviar o relatório:");
                     if (email) {
                         addMessage('bot', `Enviando relatório para ${email}...`);
