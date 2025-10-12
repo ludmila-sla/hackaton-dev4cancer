@@ -4,22 +4,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat com IA</title>
+    <title>Maria - Assistente para Oncologistas</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 
 <body>
     <div class="chat-container">
         <header class="chat-header">
-            <h2>Chat IA</h2>
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-stethoscope"></i>
+                    <h1>Maria</h1>
+                </div>
+                <p class="subtitle">Assistente inteligente para rastreamento e diagnóstico precoce de cancer</p>
+            </div>
+            <div class="status-indicator">
+                <span class="status-dot"></span>
+                <span>Online</span>
+            </div>
         </header>
 
         <div id="chat-box" class="chat-box">
+            <div class="welcome-message">
+                <div class="welcome-icon">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <h3>Estou aqui para auxiliar na análise de casos oncológicos. Como posso ajudar hoje?</h3>
+            </div>
         </div>
 
         <form id="chat-form" class="chat-form">
-            <input type="text" id="message-input" placeholder="Digite sua mensagem..." autocomplete="off" required>
-            <button type="submit">Enviar</button>
+            <div class="input-container">
+                <input type="text" id="message-input" placeholder="Descreva o caso ou faça uma pergunta..." autocomplete="off" required>
+                <button type="submit" id="send-button">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
         </form>
     </div>
 
@@ -46,18 +68,14 @@
                 });
 
                 const data = await response.json();
-                
-                // Salvar session_id se necessário
+
                 if (data.session_id && !currentSessionId) {
                     currentSessionId = data.session_id;
                 }
 
-                // Verificar se precisa solicitar email para relatório
                 if (data.solicita_email) {
-                    // Mostrar prompt para o usuário digitar o email
                     const email = prompt("Por favor, informe o email do oncologista para enviar o relatório:");
                     if (email) {
-                        // Chamar a rota para enviar o relatório
                         addMessage('bot', `Enviando relatório para ${email}...`);
                         
                         const emailResponse = await fetch('/enviar_relatorio', {
@@ -84,28 +102,55 @@
         });
 
         function addMessage(sender, text, imageUrl = null) {
-            const msgDiv = document.createElement('div');
-            msgDiv.classList.add('message', sender);
+    const msgDiv = document.createElement('div');
+    msgDiv.classList.add('message', sender);
 
-            if (text) {
-                const p = document.createElement('p');
-                p.textContent = text;
-                msgDiv.appendChild(p);
-            }
+    const avatar = document.createElement('div');
+    avatar.classList.add('avatar');
+    
+    if (sender === 'user') {
+        avatar.classList.add('user-avatar');
+        avatar.innerHTML = '<i class="fas fa-user-md"></i>';
+    } else {
+        avatar.classList.add('bot-avatar');
+        avatar.innerHTML = '<i class="fas fa-robot"></i>';
+    }
+    
+    msgDiv.appendChild(avatar);
 
-            if (imageUrl) {
-                const img = document.createElement('img');
-                img.src = '/' + imageUrl;
-                img.alt = 'Gráfico de Probabilidades';
-                img.style.maxWidth = '100%';
-                img.style.border = '1px solid #ddd';
-                img.style.borderRadius = '5px';
-                img.style.marginTop = '10px';
-                msgDiv.appendChild(img);
-            }
+    const contentDiv = document.createElement('div');
+    contentDiv.classList.add('message-content');
 
-            chatBox.appendChild(msgDiv);
-            chatBox.scrollTop = chatBox.scrollHeight;
+    if (text) {
+        const p = document.createElement('p');
+        p.textContent = text;
+        contentDiv.appendChild(p);
+    }
+
+    if (imageUrl) {
+        const img = document.createElement('img');
+        img.src = '/' + imageUrl;
+        img.alt = 'Gráfico de Probabilidades';
+        img.classList.add('message-image');
+        contentDiv.appendChild(img);
+    }
+
+    msgDiv.appendChild(contentDiv);
+    chatBox.appendChild(msgDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+                function typeMessage(element, text, speed = 30) {
+            let i = 0;
+            element.innerHTML = '';
+            const timer = setInterval(() => {
+                if (i < text.length) {
+                    element.innerHTML += text.charAt(i);
+                    i++;
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                } else {
+                    clearInterval(timer);
+                }
+            }, speed);
         }
     </script>
 </body>
