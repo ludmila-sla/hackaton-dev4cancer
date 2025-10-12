@@ -1,25 +1,37 @@
-from dotenv import load_dotenv
-import os
-from langchain_groq import ChatGroq
-from persistencia import responder, criar_session
-from static.gerar_imagem import gerar_grafico_probabilidades
-import re, pathlib
-from pydantic import BaseModel, Field
-from typing import Literal, List, Dict
-from os import get_terminal_size
-from langchain_core.messages import SystemMessage, HumanMessage
-from importar_links import carregar_links
-from pathlib import Path
-from langchain_community.document_loaders import PyMuPDFLoader 
-from langchain_core.prompts import ChatPromptTemplate
-from langchain.chains.combine_documents import create_stuff_documents_chain 
-from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from dotenv import load_dotenv # Permite carregar variáveis de ambiente definidas em um arquivo .env para dentro do ambiente Python.
+import os # Fornece funções para interagir com o sistema operacional, como manipulação de arquivos, diretórios e variáveis de ambiente.
+from langchain_groq import ChatGroq # Integração com a API da Groq para criar chatbots inteligentes baseados em IA.
+from persistencia import responder, criar_session # Funções internas para:
+# - responder: gerar respostas usando o sistema definido.
+# - criar_session: criar e gerenciar sessões de chat persistentes.
+from static.gerar_imagem import gerar_grafico_probabilidades # Função interna para gerar gráficos ou imagens, como gráficos de probabilidades, a partir de dados do sistema.
+import re, pathlib # re: expressões regulares para manipulação e limpeza de strings/textos.
+# pathlib: manipulação de arquivos e diretórios de forma orientada a objetos.
+
+
+from pydantic import BaseModel, Field # Pydantic fornece validação e definição de modelos de dados, garantindo tipos e padrões corretos.
+from typing import Literal, List, Dict # Tipagem estática para listas, dicionários e valores literais, ajudando na documentação e checagem de tipos.
+from os import get_terminal_size # Permite obter o tamanho do terminal (número de colunas e linhas) para ajustar saídas de texto dinamicamente.
+from langchain_core.messages import SystemMessage, HumanMessage # Classes que representam mensagens do sistema e do usuário, utilizadas na construção de fluxos de conversação.
+from importar_links import carregar_links # Função interna para importar ou carregar links externos que possam ser usados como referência ou contexto.
+from pathlib import Path # Facilita a manipulação de caminhos de arquivos e diretórios de forma independente do sistema operacional.
+from langchain_community.document_loaders import PyMuPDFLoader # Carrega e lê PDFs usando PyMuPDF, transformando o conteúdo em documentos processáveis.
+from langchain_core.prompts import ChatPromptTemplate # Permite criar templates de prompts para alimentar modelos de linguagem.
+from langchain.chains.combine_documents import create_stuff_documents_chain # Função que combina múltiplos documentos em um fluxo de processamento único, útil para respostas baseadas em RAG (Retrieval-Augmented Generation).
+from langchain_community.vectorstores import FAISS # Implementação de um vetor store usando FAISS, permitindo busca semântica rápida em documentos vetorizados.
+from langchain_huggingface import HuggingFaceEmbeddings # Permite gerar embeddings de texto usando modelos da HuggingFace, usado em busca semântica e similaridade.
+from langchain_text_splitters import RecursiveCharacterTextSplitter # Divide textos longos em trechos menores, respeitando limites de tamanho e preservando contexto.
+
 
 load_dotenv()
-API_KEY = os.getenv("API_KEY")
+# Carrega as variáveis de ambiente definidas no arquivo .env para o ambiente Python.
+# Isso permite que valores sensíveis (como chaves de API) fiquem fora do código-fonte.
 
+API_KEY = os.getenv("API_KEY") # Obtém o valor da variável de ambiente "API_KEY".
+
+
+# Prompt estruturado que define o comportamento da IA médica "Maria" em diferentes cenários.
+# Serve como base para o modelo de linguagem ao interagir com usuários (médicos ou pacientes).
 TRIAGEM_PROMPT = (
     "0. Interações sociais básicas:\n"
     "- Se o usuário disser apenas 'oi', 'olá', 'boa tarde', 'e aí', 'tudo bem?', 'como você está?', responda de forma breve, simpática e acolhedora, sem entrar em conteúdos médicos.\n"
@@ -102,23 +114,30 @@ TRIAGEM_PROMPT = (
     "Analise a mensagem e decida a ação mais apropriada."
 )
 
-
+# Modelo de saída estruturada para a triagem de mensagens.
 class TriagemOut(BaseModel):
     decisao: Literal["AUTO_RESOLVER", "PEDIR_INFO", "ABRIR_CHAMADO"]
     urgencia: Literal["BAIXA", "MEDIA", "ALTA"]
     campos_faltantes: List[str] = Field(default_factory=list)
 
+# Inicialização do modelo de linguagem Groq
 llm_triagem = ChatGroq(
-    model="llama-3.1-8b-instant",
-    temperature=0.6,
-    api_key= API_KEY
+    model="llama-3.1-8b-instant", # Modelo usado para triagem de mensagens
+    temperature=0.6,  # Controla a aleatoriedade/respostas do modelo
+    api_key= API_KEY # Chave de API carregada do ambiente
 )
 
+
+# Configuração da saída estruturada do modelo
+# Permite que a resposta do modelo seja automaticamente convertida para o modelo TriagemOut
 triagem_chain = llm_triagem.with_structured_output(TriagemOut)
+
+
+# Função principal de triagem de mensagens.
 def triagem(mensagem: str) -> Dict:     # ATRIBUTO qual conteudo do system mensage #parametro/metodo Que foi o prompt que nos criamos TRIAGEM MENSAGEM
     saida: TriagemOut=triagem_chain.invoke([
-        SystemMessage(content=TRIAGEM_PROMPT),
-        HumanMessage(content=mensagem)
+        SystemMessage(content=TRIAGEM_PROMPT), # Prompt do sistema que define o comportamento da IA
+        HumanMessage(content=mensagem)  # Mensagem do usuário
         ])
     return saida.model_dump()
 
