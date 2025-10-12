@@ -1,0 +1,27 @@
+# Variáveis de ambiente
+python-dotenv
+
+# IA e LangChain
+langchain-groq
+langchain-core
+langchain-huggingface
+langchain-text-splitters
+langchain-community
+faiss-cpu
+pydantic
+
+# NLP e embeddings
+sentence-transformers
+
+# Web scraping e processamento de documentos
+beautifulsoup4
+unstructured
+
+# Flask
+Flask
+
+# Email
+secure-smtplib
+
+# Utilitários
+typing-extensions
