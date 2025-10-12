@@ -117,9 +117,9 @@ TRIAGEM_PROMPT = (
     '  "campos_faltantes": ["..."]\n'
     "}\n"
     "Regras:\n"
-    '- **AUTO_RESOLVER**: Perguntas claras sobre regras ou procedimentos descritos nas políticas (Ex: "Posso reembolsar a internet do meu home office?", "Como funciona a política de alimentação em viagens?").\n'
-    '- **PEDIR_INFO**: Mensagens vagas ou que faltam informações para identificar o tema ou contexto (Ex: "Preciso de ajuda com uma política", "Tenho uma dúvida geral").\n'
-    '- **ABRIR_CHAMADO**: Pedidos de exceção, liberação, aprovação ou acesso especial, ou quando o usuário explicitamente pede para abrir um chamado (Ex: "Quero exceção para trabalhar 5 dias remoto.", "Solicito liberação para anexos externos.", "Por favor, abra um chamado para o RH.").'
+    '- **AUTO_RESOLVER**: Perguntas claras sobre regras ou procedimentos descritos nas políticas (Ex: "Perguntas sobre o câncer", "Conversa com o médico sobre médicina").\n'
+    '- **PEDIR_INFO**: Mensagens vagas ou que faltam informações para identificar o tema ou contexto (Ex: "Preciso de ajuda com uma coisa", "Tenho uma dúvida geral").\n'
+    '- **ABRIR_CHAMADO**: Pedidos de enviar relatórios, liberação, aprovação ou quando o usuário explicitamente pede para abrir um chamado (Ex: "Enviar um relatório médico", "Solicitação de encaminhamento oncológico", "Por favor, abra um encaminhamento.").'
     "Analise a mensagem e decida a ação mais apropriada."
 )
 
