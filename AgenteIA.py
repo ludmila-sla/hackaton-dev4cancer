@@ -8,9 +8,13 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
 TRIAGEM_PROMPT = (
+    "0. Interações sociais básicas:\n"
+    "- Se o usuário disser apenas 'oi', 'olá', 'boa tarde', 'e aí', 'tudo bem?', 'como você está?', responda de forma breve, simpática e acolhedora, sem entrar em conteúdos médicos.\n"
+    "- Se o usuário perguntar 'quem é você?', explique resumidamente sua identidade e função, sem respostas excessivamente técnicas.\n"
+    "- Só comece a responder como IA médica quando o usuário fizer perguntas sobre câncer, rastreamento, sintomas, prevenção, exames ou casos clínicos.\n"
     "1. Identidade: Você é a Maria, uma Inteligência Artificial clínica, educativa e assistiva, desenvolvida para médicos generalistas e profissionais da Atenção Primária à Saúde.\n"
     "Seu papel é aumentar a eficácia e a celeridade do rastreamento e diagnóstico inicial de câncer colorretal, câncer de intestino grosso ou tumores de intestino grosso ou tumor de cólon e de câncer pulmonar, integrando múltiplas fontes de evidência científica e auxiliando na educação em saúde de pacientes.\n"
-    "Quando a pergunta estiver relacionada a esses temas — como fatores de risco, sintomas, condutas, exames, prevenção ou educação em saúde — você deve orientar com precisão e segurança. Caso o assunto esteja fora do seu escopo, responda informando isso com elegância e foco na sua área de atuação."
+    "Quando a pergunta estiver relacionada a esses temas — como fatores de risco, sintomas, condutas, exames, prevenção ou educação em saúde — você deve orientar com precisão e segurança. Caso o assunto esteja fora do seu escopo, responda informando isso com elegância e foco na sua área de atuação.\n"
     "Se perguntarem quem é você, respondade forma objetiva com base na sua identidade, papel e função. Por exemplo, você pode dizer que é uma IA especializada em apoio clínico, prevenção e rastreamento de cânceres colorretal e pulmonar, desenvolvida para auxiliar profissionais da saúde com informações baseadas em evidência."
     "\n"
     "2. Missão e Propósito: Sua missão é apoiar o médico em três níveis:\n"
@@ -174,9 +178,13 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 
 prompt_rag = ChatPromptTemplate.from_messages([
     ("system",
+    "0. Interações sociais básicas:\n"
+    "- Se a mensagem do usuário for apenas uma saudação (ex: 'oi', 'olá', 'bom dia', 'boa tarde', 'e aí', 'tudo bem?'), responda de forma breve, simpática e acolhedora, sem entrar em conteúdo médico.\n"
+    "- Se o usuário perguntar 'quem é você?', responda de forma objetiva e curta, dizendo que é uma assistente de apoio clínico.\n"
+    "- Não diga que a pergunta está fora do seu escopo nesses casos.\n\n"
     "1. Identidade: Você é a Maria, uma Inteligência Artificial clínica, educativa e assistiva, desenvolvida para médicos generalistas e profissionais da Atenção Primária à Saúde.\n"
     "Seu papel é aumentar a eficácia e a celeridade do rastreamento e diagnóstico inicial de câncer colorretal câncer de intestino grosso ou tumores de intestino grosso ou tumor de cólon e de câncer pulmonar, integrando múltiplas fontes de evidência científica e auxiliando na educação em saúde de pacientes.\n"
-    "Quando a pergunta estiver relacionada a esses temas — como fatores de risco, sintomas, condutas, exames, prevenção ou educação em saúde — você deve orientar com precisão e segurança. Caso o assunto esteja fora do seu escopo, responda informando isso com elegância e foco na sua área de atuação."
+    "Quando a pergunta estiver relacionada a esses temas — como fatores de risco, sintomas, condutas, exames, prevenção ou educação em saúde — você deve orientar com precisão e segurança. Caso o assunto esteja fora do seu escopo, responda informando isso com elegância e foco na sua área de atuação.\n"
     "Se perguntarem quem é você, respondade forma objetiva com base na sua identidade, papel e função. Por exemplo, você pode dizer que é uma IA especializada em apoio clínico, prevenção e rastreamento de cânceres colorretal e pulmonar, desenvolvida para auxiliar profissionais da saúde com informações baseadas em evidência."
     "\n"
     "Seu papel é aumentar a eficácia e a celeridade do rastreamento e diagnóstico inicial "
@@ -186,12 +194,8 @@ prompt_rag = ChatPromptTemplate.from_messages([
     "1. Rastreamento — identificar quem deve ser rastreado, quando e com qual exame.\n"
     "2. Diagnóstico inicial — orientar os próximos passos quando há achados suspeitos ou sintomas relevantes.\n"
     "3. Educação e comunicação — gerar relatórios e documentos claros para médico e paciente, fortalecendo a prevenção.\n\n"
-    "Respoda SOMENTE com base no contexto fornecido. "
-    "Se não houver base suficiente, responda apenas: "
-    "'Essa pergunta não faz parte do escopo da minha atuação! Estou aqui para ajudar na condução dos casos de seus pacientes. "
-    "Se tiver alguma pergunta relacionada a isso, pode falar!'\n"
-    "Fui desenvolvida para apoiar médicos na condução clínica e no acompanhamento de seus pacientes. "
-    "Se quiser discutir algum caso, exame ou conduta de rastreamento, posso ajudar com prazer."
+    "Quando o usuário fizer perguntas clínicas ou sobre prevenção, responda SOMENTE com base no contexto fornecido.\n"
+    "Se a pergunta não estiver relacionada ao seu escopo médico, responda de forma educada, sem dizer que está fora do escopo, e convide o usuário a fazer perguntas clínicas quando desejar.\n"
     ),
     ("human","Pergunta: {input}\n\nContexto:\n{context}")
     ])
@@ -236,22 +240,44 @@ def perguntar_politica_RAG(pergunta: str, session_id: str = None) -> Dict:
     if session_id is None:
         session_id = criar_session()
 
-    docs_relacionados = retriever.invoke(pergunta) 
+    # 1) Tentar recuperar documentos (usar retrieve/get_relevant_documents se disponível)
+    try:
+        # preferível: retriever.get_relevant_documents / retriever.retrieve
+        docs_relacionados = retriever.get_relevant_documents(pergunta)
+    except Exception:
+        # fallback para o método invoke (caso seja necessário)
+        try:
+            docs_relacionados = retriever.invoke(pergunta) or []
+        except Exception:
+            docs_relacionados = []
 
-    if not docs_relacionados:
-        return {"answer": "Não sei",
-            "citacoes": [],
-            "contexto_encontrado": False }
-
-    else:
-        answer = document_chain.invoke({"input": pergunta, "context": docs_relacionados})
-        resposta_texto = (answer or "").strip()
-        if resposta_texto.rstrip(".!?") == "Não sei":
-            contexto_encontrado = False
-            citacoes = []
+    # 2) Se não encontrou documentos, não devolva "Não sei" automaticamente.
+    #    Em vez disso, chame o document_chain sem contexto (permitindo que o prompt trate saudações).
+    try:
+        if docs_relacionados:
+            answer = document_chain.invoke({"input": pergunta, "context": docs_relacionados})
         else:
-            contexto_encontrado = True
-            citacoes = formatar_citacoes(docs_relacionados, pergunta)
+            # chamar sem contexto para permitir respostas sociais (saudações, "quem é você?", etc.)
+            answer = document_chain.invoke({"input": pergunta, "context": []})
+    except Exception as e:
+        # fallback seguro
+        return {
+            "answer": "Erro ao consultar o modelo: " + str(e),
+            "citacoes": [],
+            "contexto_encontrado": False,
+            "session_id": session_id
+        }
+
+    # 3) Normalizar o texto da resposta (document_chain pode retornar objetos diferentes em versões)
+    resposta_texto = str(answer).strip()
+
+    # 4) Detectar se a resposta é um "Não sei" genuíno (pode ajustar a string conforme seu prompt)
+    if resposta_texto.rstrip(".!?").lower() in ("não sei", "nao sei"):
+        contexto_encontrado = False
+        citacoes = []
+    else:
+        contexto_encontrado = bool(docs_relacionados)
+        citacoes = formatar_citacoes(docs_relacionados, pergunta) if contexto_encontrado else []
 
     resposta = {
         "answer": resposta_texto,
@@ -259,14 +285,10 @@ def perguntar_politica_RAG(pergunta: str, session_id: str = None) -> Dict:
         "contexto_encontrado": contexto_encontrado,
         "session_id": session_id
     }
+
+    # 5) Persistência de logs
     responder(session_id, pergunta)
     responder(session_id, resposta_texto)
 
     return resposta
-
-
-
-
-
-
 
