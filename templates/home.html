@@ -28,6 +28,8 @@
         const input = document.getElementById('message-input');
         const chatBox = document.getElementById('chat-box');
 
+        let currentSessionId = null;
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const userMsg = input.value.trim();
@@ -44,7 +46,33 @@
                 });
 
                 const data = await response.json();
-                if (data.imagem) {
+                
+                // Salvar session_id se necessário
+                if (data.session_id && !currentSessionId) {
+                    currentSessionId = data.session_id;
+                }
+
+                // Verificar se precisa solicitar email para relatório
+                if (data.solicita_email) {
+                    // Mostrar prompt para o usuário digitar o email
+                    const email = prompt("Por favor, informe o email do oncologista para enviar o relatório:");
+                    if (email) {
+                        // Chamar a rota para enviar o relatório
+                        addMessage('bot', `Enviando relatório para ${email}...`);
+                        
+                        const emailResponse = await fetch('/enviar_relatorio', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                email_destino: email,
+                                session_id: currentSessionId || data.session_id
+                            })
+                        });
+
+                        const emailResult = await emailResponse.json();
+                        addMessage('bot', emailResult.message);
+                    }
+                } else if (data.imagem) {
                     addMessage('bot', data.answer, data.imagem);
                 } else {
                     addMessage('bot', data.answer); 
@@ -54,33 +82,31 @@
                 console.error(err);
             }
         });
+
         function addMessage(sender, text, imageUrl = null) {
-    const msgDiv = document.createElement('div');
-    msgDiv.classList.add('message', sender);
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message', sender);
 
-    if (text) {
-        const p = document.createElement('p');
-        p.textContent = text;
-        msgDiv.appendChild(p);
-    }
+            if (text) {
+                const p = document.createElement('p');
+                p.textContent = text;
+                msgDiv.appendChild(p);
+            }
 
-    if (imageUrl) {
-        const img = document.createElement('img');
-        img.src = '/' + imageUrl;
-        img.alt = 'Gráfico de Probabilidades';
-        img.style.maxWidth = '100%';
-        img.style.border = '1px solid #ddd';
-        img.style.borderRadius = '5px';
-        img.style.marginTop = '10px';
-        msgDiv.appendChild(img);
-    }
+            if (imageUrl) {
+                const img = document.createElement('img');
+                img.src = '/' + imageUrl;
+                img.alt = 'Gráfico de Probabilidades';
+                img.style.maxWidth = '100%';
+                img.style.border = '1px solid #ddd';
+                img.style.borderRadius = '5px';
+                img.style.marginTop = '10px';
+                msgDiv.appendChild(img);
+            }
 
-    chatBox.appendChild(msgDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
     </script>
 </body>
-
 </html>
