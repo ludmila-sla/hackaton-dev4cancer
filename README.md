@@ -31,7 +31,7 @@ Aumentar a detecção precoce de câncer e agilizar o encaminhamento adequado, r
   O sistema indica quais exames são apropriados para investigação inicial ou complementar.
 
 - Encaminhamento automatizado
-  Se os exames indicarem suspeita ou confirmação, a IA gera um documento com todas as informações necessárias para o oncologista e sugere que o paciente seja
+  Se os exames indicarem suspeita ou confirmação, a IA gera um documento com todas as informações necessárias e sugere que o paciente seja encaminhado para o oncologista 
 
 ## Fontes e Base de Conhecimento
 
