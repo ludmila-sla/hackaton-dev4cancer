@@ -348,3 +348,8 @@ export FLASK_ENV=development # ativa modo debug
 flask run
 
 - Abra o navegador e acesse: http://127.0.0.1:5000/
+<img width="1920" height="1053" alt="Screenshot at 2025-10-12 12-42-42" src="https://github.com/user-attachments/assets/0747fe18-524e-4535-9d19-2c6efe59bcad" />
+
+
+
+
