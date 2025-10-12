@@ -16,9 +16,19 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from datetime import datetime
+from typing import Optional
 
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
+
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = os.getenv("EMAIL_PORT", "587")
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
 TRIAGEM_PROMPT = (
     "0. Interações sociais básicas:\n"
@@ -229,6 +239,107 @@ def formatar_citacoes(docs_rel: List, query: str) -> List[Dict]:
         cites.append({"documento": src, "pagina": page, "trecho": extrair_trecho(d.page_content, query)})
     return cites[:3]
 
+def extrair_dados_paciente_do_historico(historico: List[Dict]) -> Dict:
+    """
+    Extrai informações do histórico da conversa
+    """
+    dados = {
+        "idade": None,
+        "sexo": None,
+        "sintomas": [],
+        "fatores_risco": [],
+        "historico_familiar": [],
+        "exames": [],
+        "resumo_conversa": ""
+    }
+    
+    texto_completo = " ".join([msg.get('mensagem', '') for msg in historico])
+    dados["resumo_conversa"] = texto_completo[:500] + "..." if len(texto_completo) > 500 else texto_completo
+    
+    idade_match = re.search(r'(\d+)\s*anos?', texto_completo.lower())
+    if idade_match:
+        dados["idade"] = int(idade_match.group(1))
+    
+    sexo_match = re.search(r'(homem|mulher|masculino|feminino)', texto_completo.lower())
+    if sexo_match:
+        dados["sexo"] = sexo_match.group(1)
+    
+    sintomas_keywords = ['sangramento', 'dor', 'fadiga', 'perda de peso', 'tosse', 'falta de ar', 'náusea', 'vômito']
+    for sintoma in sintomas_keywords:
+        if sintoma in texto_completo.lower():
+            dados["sintomas"].append(sintoma)
+    
+    fatores_keywords = ['fumante', 'tabagismo', 'álcool', 'obesidade', 'diabetes', 'história familiar']
+    for fator in fatores_keywords:
+        if fator in texto_completo.lower():
+            dados["fatores_risco"].append(fator)
+    
+    return dados
+def gerar_relatorio_oncologia(dados: Dict, historico: List[Dict]) -> str:
+    """
+    Gera relatório para oncologista
+    """
+    data_atual = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+    ultimas_mensagens = historico[-5:] if len(historico) > 5 else historico
+    resumo_dialogo = "\n".join([f"{msg['tipo']}: {msg['mensagem'][:100]}..." for msg in ultimas_mensagens])
+    
+    relatorio = f"""
+RELATÓRIO MÉDICO - ENCAMINHAMENTO ONCOLÓGICO
+Data: {data_atual}
+{'='*60}
+
+DADOS IDENTIFICADOS:
+- Idade: {dados["idade"] if dados["idade"] else 'Não informada'}
+- Sexo: {dados["sexo"] if dados["sexo"] else 'Não informado'}
+- Sintomas relatados: {', '.join(dados['sintomas']) if dados['sintomas'] else 'Nenhum específico'}
+- Fatores de risco: {', '.join(dados['fatores_risco']) if dados['fatores_risco'] else 'Não identificados'}
+
+RESUMO DA CONVERSA:
+{resumo_dialogo}
+
+INFORMAÇÕES COMPLEMENTARES:
+{ dados["resumo_conversa"] }
+
+{'='*60}
+Relatório gerado automaticamente pelo sistema IA-RaDi
+Baseado na análise da conversa realizada
+"""
+    return relatorio
+def enviar_email_relatorio(email_destino: str, relatorio: str, assunto: str = "Relatório Médico") -> bool:
+    """
+    Envia relatório por email
+    """
+    try:
+        server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
+        server.starttls()
+        server.login(EMAIL_USER, EMAIL_PASSWORD)
+        
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_USER
+        msg['To'] = email_destino
+        msg['Subject'] = assunto
+        
+        corpo_email = f"""
+
+Segue o relatório do paciente para avaliação.
+
+{relatorio}
+
+Atenciosamente,
+Sistema IA-RaDi
+"""
+        
+        msg.attach(MIMEText(corpo_email, 'plain'))
+        server.send_message(msg)
+        server.quit()
+        
+        return True
+        
+    except Exception as e:
+        print(f"Erro ao enviar email: {e}")
+        return False
+    
 #funcão principal que vai fazer toda essa coneção
 def perguntar_politica_RAG(pergunta: str, session_id: str = None) -> Dict:
     if session_id is None:
@@ -255,7 +366,7 @@ def perguntar_politica_RAG(pergunta: str, session_id: str = None) -> Dict:
                 "contexto_encontrado": False,
                 "session_id": session_id
             }
-            
+                    
         except Exception as e:
             return {
                 "answer": f"Erro ao gerar gráfico: {str(e)}",
@@ -263,7 +374,17 @@ def perguntar_politica_RAG(pergunta: str, session_id: str = None) -> Dict:
                 "contexto_encontrado": False,
                 "session_id": session_id
             }
-
+    elif any(termo in pergunta_lower for termo in ["relatorio", "relatório", "encaminhar", "enviar email", "mandar email", "enviar para oncologista"]):
+        resposta_texto = "Entendi que você quer gerar um relatório. Por favor, informe o email do oncologista para quem devo enviar o relatório com o resumo desta conversa."
+        responder(session_id, pergunta)
+        responder(session_id, resposta_texto)
+        
+        return {
+            "answer": resposta_texto,
+            "citacoes": [],
+            "solicita_email": True,  
+            "session_id": session_id
+        }
     try:
         docs_relacionados = retriever.get_relevant_documents(pergunta)
     except Exception:
@@ -307,3 +428,39 @@ def perguntar_politica_RAG(pergunta: str, session_id: str = None) -> Dict:
     responder(session_id, resposta_texto)
 
     return resposta
+
+def processar_envio_relatorio(session_id: str, email_destino: str) -> Dict:
+    """
+    Processa o envio do relatório por email
+    """
+    try:
+        from persistencia import obter_historico_conversa
+        
+        historico = obter_historico_conversa(session_id)
+        
+        if not historico:
+            return {
+                "success": False,
+                "message": "Nenhum histórico de conversa encontrado para esta sessão."
+            }
+        
+        dados_paciente = extrair_dados_paciente_do_historico(historico)
+        
+        relatorio = gerar_relatorio_oncologia(dados_paciente, historico)
+        
+        if enviar_email_relatorio(email_destino, relatorio):
+            return {
+                "success": True,
+                "message": f"Relatório enviado com sucesso para {email_destino}"
+            }
+        else:
+            return {
+                "success": False,
+                "message": "Falha no envio do email. Verifique as configurações de SMTP."
+            }
+            
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Erro ao processar relatório: {str(e)}"
+        }
