@@ -1,46 +1,34 @@
-from dotenv import load_dotenv # Permite carregar variáveis de ambiente definidas em um arquivo .env para dentro do ambiente Python.
-import os # Fornece funções para interagir com o sistema operacional, como manipulação de arquivos, diretórios e variáveis de ambiente.
-from langchain_groq import ChatGroq # Integração com a API da Groq para criar chatbots inteligentes baseados em IA.
-from persistencia import responder, criar_session # Funções internas para:
-# - responder: gerar respostas usando o sistema definido.
-# - criar_session: criar e gerenciar sessões de chat persistentes.
-from static.gerar_imagem import gerar_grafico_probabilidades # Função interna para gerar gráficos ou imagens, como gráficos de probabilidades, a partir de dados do sistema.
-import re, pathlib # re: expressões regulares para manipulação e limpeza de strings/textos.
-# pathlib: manipulação de arquivos e diretórios de forma orientada a objetos.
-
-
-from pydantic import BaseModel, Field # Pydantic fornece validação e definição de modelos de dados, garantindo tipos e padrões corretos.
-from typing import Literal, List, Dict # Tipagem estática para listas, dicionários e valores literais, ajudando na documentação e checagem de tipos.
-from os import get_terminal_size # Permite obter o tamanho do terminal (número de colunas e linhas) para ajustar saídas de texto dinamicamente.
-from langchain_core.messages import SystemMessage, HumanMessage # Classes que representam mensagens do sistema e do usuário, utilizadas na construção de fluxos de conversação.
-from importar_links import carregar_links # Função interna para importar ou carregar links externos que possam ser usados como referência ou contexto.
-from pathlib import Path # Facilita a manipulação de caminhos de arquivos e diretórios de forma independente do sistema operacional.
-from langchain_community.document_loaders import PyMuPDFLoader # Carrega e lê PDFs usando PyMuPDF, transformando o conteúdo em documentos processáveis.
-from langchain_core.prompts import ChatPromptTemplate # Permite criar templates de prompts para alimentar modelos de linguagem.
-from langchain.chains.combine_documents import create_stuff_documents_chain # Função que combina múltiplos documentos em um fluxo de processamento único, útil para respostas baseadas em RAG (Retrieval-Augmented Generation).
-from langchain_community.vectorstores import FAISS # Implementação de um vetor store usando FAISS, permitindo busca semântica rápida em documentos vetorizados.
-from langchain_huggingface import HuggingFaceEmbeddings # Permite gerar embeddings de texto usando modelos da HuggingFace, usado em busca semântica e similaridade.
-from langchain_text_splitters import RecursiveCharacterTextSplitter # Divide textos longos em trechos menores, respeitando limites de tamanho e preservando contexto.
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from datetime import datetime
-from typing import Optional
+from dotenv import load_dotenv
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from importar_links import carregar_links
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_community.document_loaders import PyMuPDFLoader
+from langchain_community.vectorstores import FAISS
+from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate 
+from langchain_groq import ChatGroq
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pathlib import Path
+from persistencia import responder, criar_session
+from pydantic import BaseModel, Field
+from static.gerar_imagem import gerar_grafico_probabilidades
+import smtplib
+from typing import Literal, List, Dict
+import os 
+import re, pathlib 
 
 load_dotenv()
-# Carrega as variáveis de ambiente definidas no arquivo .env para o ambiente Python.
-# Isso permite que valores sensíveis (como chaves de API) fiquem fora do código-fonte.
 
-API_KEY = os.getenv("API_KEY") # Obtém o valor da variável de ambiente "API_KEY".
+API_KEY = os.getenv("API_KEY")
 
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_PORT = os.getenv("EMAIL_PORT", "587")
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
-
-# Prompt estruturado que define o comportamento da IA médica "Maria" em diferentes cenários.
-# Serve como base para o modelo de linguagem ao interagir com usuários (médicos ou pacientes).
 TRIAGEM_PROMPT = (
     "0. Interações sociais básicas:\n"
     "- Se o usuário disser apenas 'oi', 'olá', 'boa tarde', 'e aí', 'tudo bem?', 'como você está?', responda de forma breve, simpática e acolhedora, sem entrar em conteúdos médicos.\n"
@@ -123,129 +111,76 @@ TRIAGEM_PROMPT = (
     "Analise a mensagem e decida a ação mais apropriada."
 )
 
-# Modelo de saída estruturada para a triagem de mensagens.
 class TriagemOut(BaseModel):
     decisao: Literal["AUTO_RESOLVER", "PEDIR_INFO", "ABRIR_CHAMADO"]
     urgencia: Literal["BAIXA", "MEDIA", "ALTA"]
     campos_faltantes: List[str] = Field(default_factory=list)
 
-# Inicialização do modelo de linguagem Groq
 llm_triagem = ChatGroq(
-    model="llama-3.1-8b-instant", # Modelo usado para triagem de mensagens
-    temperature=0.6,  # Controla a aleatoriedade/respostas do modelo
-    api_key= API_KEY # Chave de API carregada do ambiente
+    model="llama-3.1-8b-instant",s
+    temperature=0.6,
+    api_key= API_KEY
 )
 
-
-# Configuração da saída estruturada do modelo
-# Permite que a resposta do modelo seja automaticamente convertida para o modelo TriagemOut
 triagem_chain = llm_triagem.with_structured_output(TriagemOut)
 
-
-# Função principal de triagem de mensagens.
-def triagem(mensagem: str) -> Dict:     # ATRIBUTO qual conteudo do system mensage #parametro/metodo Que foi o prompt que nos criamos TRIAGEM MENSAGEM
+def triagem(mensagem: str) -> Dict: 
     saida: TriagemOut=triagem_chain.invoke([
-        SystemMessage(content=TRIAGEM_PROMPT), # Prompt do sistema que define o comportamento da IA
-        HumanMessage(content=mensagem)  # Mensagem do usuário
+        SystemMessage(content=TRIAGEM_PROMPT),
+        HumanMessage(content=mensagem)
         ])
     return saida.model_dump()
 
-
-# Bibliotecas para caminho dos arquivos
-# Caminho relativo para a pasta 'docs' dentro do projeto
 docs_path = Path("docs") 
-
-
 docs =[]
-# Lista que armazenará todos os documentos carregados, incluindo PDFs locais e links externos.
 
-# Carregamento de arquivos PDF locais
 for n in docs_path.glob("*.pdf"):
-    # Itera sobre todos os arquivos com extensão .pdf no diretório definido por docs_path
     try:
         loader = PyMuPDFLoader(str(n)) 
-        # Inicializa o loader PyMuPDF para ler o PDF
         docs.extend(loader.load())
-        # Adiciona o conteúdo do PDF à lista de documentos
         print(f'Arquivo {n.name} Carregado com sucesso')
-        # Confirmação de carregamento
     except Exception as e:
-        # Captura erros durante o carregamento de PDF
         print(f'Erro ao carregar o arquivo {n.name}: {e}')
 
-# Carregamento de documentos a partir de links externos
-
-docs_links = carregar_links() # Chama função personalizada para obter documentos de links ou URLs
+docs_links = carregar_links()
 
 docs.extend(docs_links)
-# Adiciona os documentos carregados de links à lista principal
 
 print(f"✅ Total de documentos carregados de links: {len(docs_links)}")
-# Exibe o número de documentos carregados a partir de links externos
-
-
-
-# ---------------------------
-# Divisão de documentos em trechos menores (chunks)
-# ---------------------------
 
 splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000,  # Tamanho máximo de cada trecho
-    chunk_overlap=100,  # Sobreposição entre trechos consecutivos para preservar contexto
-    separators=["\n\n", "\n", ".", ";", " ", ""] # Prioridade de separação de texto
+    chunk_size=1000, 
+    chunk_overlap=100,o
+    separators=["\n\n", "\n", ".", ";", " ", ""] 
 )
 
 chunks = splitter.split_documents(docs)
-# Divide todos os documentos carregados (PDFs e links) em trechos menores para processamento posterior
 
-
-# ---------------------------
-# Transformação dos trechos em vetores (embeddings)
-# ---------------------------
-
-CAMINHO_FAISS = "meu_indice_faiss" # Caminho para salvar/recuperar índice FAISS
-CAMINHO_PICKLE = "meu_indice.pkl" # Caminho alternativo de serialização (pickle)
+CAMINHO_FAISS = "meu_indice_faiss"
+CAMINHO_PICKLE = "meu_indice.pkl"
 
 
 embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2"
-    # Modelo para converter texto em vetores semânticos
 )
 
-
-# ---------------------------
-# Carregamento ou criação do índice FAISS
-# ---------------------------
-
 if os.path.exists(CAMINHO_FAISS) and os.path.exists(CAMINHO_PICKLE):
-    # Se o índice já existir, carrega para reutilização
     vectorstore = FAISS.load_local(
         CAMINHO_FAISS,
         embeddings,
         allow_dangerous_deserialization=True
     )
 else:
-    # Caso não exista, cria o índice a partir dos trechos
     vectorstore = FAISS.from_documents(chunks, embeddings)
-    vectorstore.save_local(CAMINHO_FAISS)  # Salva localmente para uso futuro
+    vectorstore.save_local(CAMINHO_FAISS)
 
-
-# ---------------------------
-# Configuração do retriever para busca semântica
-# ---------------------------
 retriever = vectorstore.as_retriever(
-    search_type="similarity_score_threshold",  # Tipo de busca baseado em similaridade
+    search_type="similarity_score_threshold",
     search_kwargs={"score_threshold": 0.2, "k": 4}
-    # Parâmetros:
-    # score_threshold: limite mínimo de similaridade para considerar resultado
-    # k: número máximo de documentos retornados por busca
 )
 
 
 prompt_rag = ChatPromptTemplate.from_messages([
-    # ---------------------------
-    # Mensagem do sistema (system)
-    # ---------------------------
     ("system",
     "0. Interações sociais básicas:\n"
     "- Se a mensagem do usuário for apenas uma saudação (ex: 'oi', 'olá', 'bom dia', 'boa tarde', 'e aí', 'tudo bem?'), responda de forma breve, simpática e acolhedora, sem entrar em conteúdo médico.\n"
@@ -266,28 +201,11 @@ prompt_rag = ChatPromptTemplate.from_messages([
     "Quando o usuário fizer perguntas clínicas ou sobre prevenção, responda SOMENTE com base no contexto fornecido.\n"
     "Se a pergunta não estiver relacionada ao seu escopo médico, responda de forma educada, sem dizer que está fora do escopo, e convide o usuário a fazer perguntas clínicas quando desejar.\n"
     ),
-    # ---------------------------
-    # Mensagem do usuário (human)
-    # ---------------------------
     ("human","Pergunta: {input}\n\nContexto:\n{context}")
-    # {input} → será substituído pela pergunta real do usuário
-    # {context} → contexto relevante recuperado (ex: documentos ou informações relacionadas)
     ])
 
 
 document_chain = create_stuff_documents_chain(llm_triagem, prompt_rag)
-# Cria uma cadeia (chain) de processamento de documentos usando o modelo LLM (llm_triagem)
-# e o prompt estruturado (prompt_rag) definido anteriormente.
-
-# Funcionalidade:
-# - Recebe documentos ou contextos relevantes (chunks de texto ou embeddings).
-# - Combina essas informações com a pergunta do usuário.
-# - Garante que a resposta do modelo seja consistente com o contexto fornecido.
-# - Utiliza o prompt_rag para orientar o comportamento da IA (saudações, identidade, respostas clínicas).
-
-
-# Formatadores
-
 def _clean_text(s: str) -> str:
     return re.sub(r"\s+", " ", s or "").strip()
 
@@ -414,12 +332,7 @@ Sistema IA-RaDi
     except Exception as e:
         print(f"Erro ao enviar email: {e}")
         return False
-    
-#funcão principal que vai fazer toda essa coneção
 
-
-# Função principal que conecta todos os componentes do sistema RAG (Retrieval-Augmented Generation)
-# para responder perguntas clínicas ou gerar gráficos de probabilidades.
 def perguntar_politica_RAG(pergunta: str, session_id: str = None) -> Dict:
     if session_id is None:
         session_id = criar_session()
@@ -485,7 +398,6 @@ def perguntar_politica_RAG(pergunta: str, session_id: str = None) -> Dict:
             "session_id": session_id
         }
 
-    # Processar resposta normal
     resposta_texto = str(answer).strip()
     
     if resposta_texto.rstrip(".!?").lower() in ("não sei", "nao sei"):
@@ -502,7 +414,6 @@ def perguntar_politica_RAG(pergunta: str, session_id: str = None) -> Dict:
         "session_id": session_id
     }
 
-    # Persistência de logs
     responder(session_id, pergunta)
     responder(session_id, resposta_texto)
 

@@ -1,5 +1,3 @@
-# importar_links_unstructured.py
-
 from langchain_community.document_loaders import UnstructuredURLLoader
 from bs4 import BeautifulSoup
 
